@@ -230,6 +230,9 @@
 		autoSlideStartTime = -1,
 		autoSlidePaused = false,
 
+    	//  A flag to block all navigation commands temporarily
+		blockNavigationCommands = false,
+
 		// Holds information about the currently ongoing touch input
 		touch = {
 			startX: 0,
@@ -1426,7 +1429,7 @@
 	 * target element.
 	 *
 	 * remaining height = [ configured parent height ] - [ current parent height ]
-	 * 
+	 *
 	 * @param {HTMLElement} element
 	 * @param {number} [height]
 	 */
@@ -3900,7 +3903,7 @@
 			// If there are media elements with data-autoplay,
 			// automatically set the autoSlide duration to the
 			// length of that media. Not applicable if the slide
-			// is divided up into fragments. 
+			// is divided up into fragments.
 			// playbackRate is accounted for in the duration.
 			if( currentSlide.querySelectorAll( '.fragment' ).length === 0 ) {
 				toArray( currentSlide.querySelectorAll( 'video, audio' ) ).forEach( function( el ) {
@@ -3968,6 +3971,13 @@
 
 	}
 
+	// Activate/deactivate blocking of navigation commands
+	function blockNavigation(block) {
+
+		blockNavigationCommands = block;
+
+	}
+
 	function navigateLeft() {
 
 		// Reverse for RTL
@@ -4008,6 +4018,11 @@
 	}
 
 	function navigateDown() {
+
+		// Immediately return if blocking is activated
+		if( blockNavigationCommands ) {
+			return;
+		}
 
 		// Prioritize revealing fragments
 		if( ( isOverview() || nextFragment() === false ) && availableRoutes().down ) {
@@ -4075,6 +4090,11 @@
 	 * swipe navigation.
 	 */
 	function isSwipePrevented( target ) {
+
+		// Immediately return if blocking is activated
+		if( blockNavigationCommands ) {
+			return true;
+		}
 
 		while( target && typeof target.hasAttribute === 'function' ) {
 			if( target.hasAttribute( 'data-prevent-swipe' ) ) return true;
@@ -4467,16 +4487,21 @@
 
 		onUserInput( event );
 
-		event.preventDefault();
+	    event.preventDefault();
 
-		var slidesTotal = toArray( dom.wrapper.querySelectorAll( HORIZONTAL_SLIDES_SELECTOR ) ).length;
-		var slideIndex = Math.floor( ( event.clientX / dom.wrapper.offsetWidth ) * slidesTotal );
+	    /*  We need the overall number of slides */
+	    var allSlides = toArray( dom.wrapper.querySelectorAll( SLIDES_SELECTOR + ':not(.stack)' ) )
+	    var slidesTotal = allSlides.length;
+	    var slideIndex = Math.floor( ( event.clientX / dom.wrapper.offsetWidth ) * slidesTotal );
 
-		if( config.rtl ) {
-			slideIndex = slidesTotal - slideIndex;
-		}
+	    if( config.rtl ) {
+	      slideIndex = slidesTotal - slideIndex;
+	    }
 
-		slide( slideIndex );
+	    var slideDomElement = allSlides[slideIndex];
+	    var indices = getIndices( slideDomElement );
+
+	    slide( indices.h || 0, indices.v || 0 );
 
 	}
 
@@ -4801,6 +4826,7 @@
 		down: navigateDown,
 		prev: navigatePrev,
 		next: navigateNext,
+		blockNavigation: blockNavigation,
 
 		// Fragment methods
 		navigateFragment: navigateFragment,
